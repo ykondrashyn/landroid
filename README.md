@@ -2,5 +2,4 @@ This is my version of the Android 14-15 easter egg. So far no (almost) changes f
 
 https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android15-s1-release/packages/EasterEgg/
 
-<img src='/.github/1.jpg' width='300' alt="1"> 
-<img src='/.github/2.jpg' width='300' alt="2">
+<img src='/.github/1.jpg' width='300' alt="1"> <img src='/.github/2.jpg' width='300' alt="2">
