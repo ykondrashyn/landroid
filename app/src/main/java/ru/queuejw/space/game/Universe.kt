@@ -25,7 +25,7 @@ import kotlin.math.sqrt
 
 const val UNIVERSE_RANGE = 200_000f
 
-val NUM_PLANETS_RANGE = 1..15
+val NUM_PLANETS_RANGE = 1..10
 val STAR_RADIUS_RANGE = (1_000f..8_000f)
 val PLANET_RADIUS_RANGE = (50f..2_000f)
 val PLANET_ORBIT_RANGE = (STAR_RADIUS_RANGE.endInclusive * 2f)..(UNIVERSE_RANGE * 0.75f)
@@ -40,7 +40,7 @@ const val STELLAR_DENSITY = 0.5f
 const val SPACECRAFT_MASS = 10f
 
 const val CRAFT_SPEED_LIMIT = 5_000f
-const val MAIN_ENGINE_ACCEL = 500f // thrust effect, pixels per second squared
+const val MAIN_ENGINE_ACCEL = 1000f // thrust effect, pixels per second squared
 const val LAUNCH_MECO = 2f // how long to suspend gravity when launching
 
 const val LANDING_REMOVAL_TIME = 60 * 15f // 15 min of simulation time
@@ -60,7 +60,6 @@ open class Planet(
     var fauna = ""
     var explored = false
     private val orbitRadius: Float
-
     init {
         this.radius = radius
         this.pos = pos
@@ -113,7 +112,6 @@ class Star(val cls: StarClass, radius: Float) :
         color = starColor(cls)
         collides = false
     }
-
     var anim = 0f
     override fun update(sim: Simulator, dt: Float) {
         anim += dt
@@ -132,9 +130,9 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
         val systemName = "TEST SYSTEM"
         star =
             Star(
-                cls = StarClass.A,
-                radius = STAR_RADIUS_RANGE.endInclusive,
-            )
+                    cls = StarClass.A,
+                    radius = STAR_RADIUS_RANGE.endInclusive,
+                )
                 .apply { name = "TEST SYSTEM" }
 
         repeat(NUM_PLANETS_RANGE.last) {
@@ -153,7 +151,7 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
                     radius = radius,
                     pos = star.pos + Vec2.makeWithAngleMag(thisPlanetFrac * PI2f, orbitRadius),
                     speed = speed,
-                    color = Colors.Companion.Eigengrau4
+                    color = Colors.Eigengrau4
                 )
             android.util.Log.v("Landroid", "created planet $p with period $period and vel $speed")
             val num = it + 1
@@ -187,7 +185,7 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
         val systemName = namer.nameSystem(rng)
         star =
             Star(
-                cls = rng.choose(StarClass.entries.toTypedArray()),
+                cls = rng.choose(StarClass.values()),
                 radius = rng.nextFloatInRange(STAR_RADIUS_RANGE)
             )
         star.name = systemName
@@ -210,7 +208,7 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
                     radius = radius,
                     pos = star.pos + Vec2.makeWithAngleMag(rng.nextFloat() * PI2f, orbitRadius),
                     speed = speed,
-                    color = Colors.Companion.Eigengrau4
+                    color = Colors.Eigengrau4
                 )
             android.util.Log.v("Landroid", "created planet $p with period $period and vel $speed")
             p.description = namer.describePlanet(rng)
@@ -228,13 +226,10 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
 
         ship.pos =
             star.pos +
-                    Vec2.makeWithAngleMag(
-                        rng.nextFloat() * PI2f,
-                        rng.nextFloatInRange(
-                            PLANET_ORBIT_RANGE.start,
-                            PLANET_ORBIT_RANGE.endInclusive
-                        )
-                    )
+                Vec2.makeWithAngleMag(
+                    rng.nextFloat() * PI2f,
+                    rng.nextFloatInRange(PLANET_ORBIT_RANGE.start, PLANET_ORBIT_RANGE.endInclusive)
+                )
         ship.angle = rng.nextFloat() * PI2f
         add(ship)
 
@@ -259,10 +254,10 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
                 // simulate gravity: $ f_g = G * m1 * m2 * 1/d^2 $
                 ship.velocity =
                     ship.velocity +
-                            Vec2.makeWithAngleMag(
-                                vector.angle(),
-                                GRAVITATION * (ship.mass * planet.mass) / d.pow(2)
-                            ) * dt
+                        Vec2.makeWithAngleMag(
+                            vector.angle(),
+                            GRAVITATION * (ship.mass * planet.mass) / d.pow(2)
+                        ) * dt
             }
         }
 
@@ -290,7 +285,7 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
                     // landing, or impact?
 
                     // 1. relative speed
-                    (ship.velocity - planet.velocity).mag()
+                    val vDiff = (ship.velocity - planet.velocity).mag()
                     // 2. landing angle
                     val aDiff = (ship.angle - a).absoluteValue
 
@@ -324,27 +319,27 @@ open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) 
                         //
                         (1..10).forEach {
                             Spark(
-                                ttl = rng.nextFloatInRange(0.5f, 2f),
-                                style = Spark.Style.DOT,
-                                color = Color.White,
-                                size = 1f
-                            )
+                                    ttl = rng.nextFloatInRange(0.5f, 2f),
+                                    style = Spark.Style.DOT,
+                                    color = Color.White,
+                                    size = 1f
+                                )
                                 .apply {
                                     pos =
                                         impact +
-                                                Vec2.makeWithAngleMag(
-                                                    rng.nextFloatInRange(0f, 2 * PIf),
-                                                    rng.nextFloatInRange(0.1f, 0.5f)
-                                                )
+                                            Vec2.makeWithAngleMag(
+                                                rng.nextFloatInRange(0f, 2 * PIf),
+                                                rng.nextFloatInRange(0.1f, 0.5f)
+                                            )
                                     opos = pos
                                     velocity =
                                         ship.velocity * 0.8f +
-                                                Vec2.makeWithAngleMag(
-                                                    //                                            a +
-                                                    // rng.nextFloatInRange(-PIf, PIf),
-                                                    rng.nextFloatInRange(0f, 2 * PIf),
-                                                    rng.nextFloatInRange(0.1f, 0.5f)
-                                                )
+                                            Vec2.makeWithAngleMag(
+                                                //                                            a +
+                                                // rng.nextFloatInRange(-PIf, PIf),
+                                                rng.nextFloatInRange(0f, 2 * PIf),
+                                                rng.nextFloatInRange(0.1f, 0.5f)
+                                            )
                                     add(this)
                                 }
                         }
@@ -411,7 +406,6 @@ class Spark(
         this.collides = collides
         this.mass = mass
     }
-
     override fun update(sim: Simulator, dt: Float) {
         super.update(sim, dt)
         fuse.update(dt)
@@ -499,22 +493,22 @@ class Spacecraft : Body() {
             // exhaust
             sim.add(
                 Spark(
-                    ttl = sim.rng.nextFloatInRange(0.5f, 1f),
-                    collides = true,
-                    mass = 1f,
-                    style = Spark.Style.RING,
-                    size = 1f,
-                    color = Color(0x40FFFFFF)
-                )
+                        ttl = sim.rng.nextFloatInRange(0.5f, 1f),
+                        collides = true,
+                        mass = 1f,
+                        style = Spark.Style.RING,
+                        size = 1f,
+                        color = Color(0x40FFFFFF)
+                    )
                     .also { spark ->
                         spark.pos = pos
                         spark.opos = pos
                         spark.velocity =
                             velocity +
-                                    Vec2.makeWithAngleMag(
-                                        angle + sim.rng.nextFloatInRange(-0.2f, 0.2f),
-                                        -MAIN_ENGINE_ACCEL * mag * 10f * dt
-                                    )
+                                Vec2.makeWithAngleMag(
+                                    angle + sim.rng.nextFloatInRange(-0.2f, 0.2f),
+                                    -MAIN_ENGINE_ACCEL * mag * 10f * dt
+                                )
                     }
             )
         }

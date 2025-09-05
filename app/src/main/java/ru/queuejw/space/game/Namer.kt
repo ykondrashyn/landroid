@@ -57,7 +57,7 @@ class Namer(resources: Resources) {
             1f to "*",
             1f to "^",
             1f to "#",
-            0.1f to "(^*!%@##!!"
+            0.1f to "(^*!%@##!!",
         )
 
     private var activities = Bag(resources.getStringArray(R.array.activities))
@@ -109,19 +109,17 @@ class Namer(resources: Resources) {
         return atmoGenericPlurals.pull(rng)
     }
 
-    val templateRegex = Regex("""\{(flora|fauna|planet|atmo)\}""")
+    val TEMPLATE_REGEX = Regex("""\{(flora|fauna|planet|atmo)\}""")
+
     fun describeActivity(rng: Random, target: Planet?): String {
-        return activities
-            .pull(rng)
-            .replace(templateRegex) {
-                when (it.groupValues[1]) {
-                    "flora" -> (target?.flora ?: "SOME") + " " + floraPlural(rng)
-                    "fauna" -> (target?.fauna ?: "SOME") + " " + faunaPlural(rng)
-                    "atmo" -> (target?.atmosphere ?: "SOME") + " " + atmoPlural(rng)
-                    "planet" -> (target?.description ?: "SOME BODY") // once told me
-                    else -> "unknown template tag: ${it.groupValues[0]}"
-                }
+        return activities.pull(rng).replace(TEMPLATE_REGEX) {
+            when (it.groupValues[1]) {
+                "flora" -> (target?.flora ?: "SOME") + " " + floraPlural(rng)
+                "fauna" -> (target?.fauna ?: "SOME") + " " + faunaPlural(rng)
+                "atmo" -> (target?.atmosphere ?: "SOME") + " " + atmoPlural(rng)
+                "planet" -> (target?.description ?: "SOME BODY") // once told me
+                else -> "unknown template tag: ${it.groupValues[0]}"
             }
-            .uppercase()
+        }
     }
 }

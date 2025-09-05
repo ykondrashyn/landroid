@@ -26,7 +26,6 @@ class Colors {
         val Mint = Color(0xFFE8F5E9)
         val Chartreuse = Color(0xFFC6FF00)
     }
-
     companion object {
         val Eigengrau = Color(0xFF16161D)
         val Eigengrau2 = Color(0xFF292936)

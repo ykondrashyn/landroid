@@ -8,15 +8,36 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Space">
 
+        <!-- Android V easter egg: Daydream version of Landroid
+            (must be enabled by unlocking the egg) -->
+        <service
+            android:name=".DreamUniverse"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:description="@string/dream_description"
+            android:enabled="false"
+            android:permission="android.permission.BIND_DREAM_SERVICE"
+            >
+
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.dream"
+                android:resource="@xml/landroid_dream"/>
+        </service>
+
+        <!-- Android U easter egg -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|screenLayout|screenSize|density"
-            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+            android:configChanges="orientation|screenLayout|screenSize|density">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER"/>
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="com.android.internal.category.PLATLOGO" />
             </intent-filter>
         </activity>
     </application>

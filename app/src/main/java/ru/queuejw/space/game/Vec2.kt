@@ -58,8 +58,8 @@ fun Offset.Companion.makeWithAngleMag(a: Float, m: Float): Vec2 {
 fun Vec2.rotate(angle: Float, origin: Vec2 = Vec2.Zero): Offset {
     val translated = this - origin
     return origin +
-            Offset(
-                (translated.x * cos(angle) - translated.y * sin(angle)),
-                (translated.x * sin(angle) + translated.y * cos(angle))
-            )
+        Offset(
+            (translated.x * cos(angle) - translated.y * sin(angle)),
+            (translated.x * sin(angle) + translated.y * cos(angle))
+        )
 }

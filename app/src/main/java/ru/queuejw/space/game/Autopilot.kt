@@ -20,10 +20,10 @@ import kotlin.math.min
 import kotlin.math.sign
 
 class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
-    val brakingTime = 5f
-    val sightseeingTime = 15f
-    val launchThrustTime = 5f
-    val strategyMinTime = 0.5f
+    val BRAKING_TIME = 5f
+    val SIGHTSEEING_TIME = 15f
+    val LAUNCH_THRUST_TIME = 5f
+    val STRATEGY_MIN_TIME = 0.5f
 
     var enabled = false
 
@@ -41,14 +41,16 @@ class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
 
     val telemetry: String
         get() =
-            listOf(
-                "---- AUTOPILOT ENGAGED ----",
-                "TGT: " + (target?.name?.uppercase() ?: "SELECTING..."),
-                "EXE: $strategy" + if (debug.isNotEmpty()) " ($debug)" else "",
-            )
-                .joinToString("\n")
+            if (enabled)
+                listOf(
+                        "---- AUTOPILOT ENGAGED ----",
+                        "TGT: " + (target?.name?.uppercase() ?: "SELECTING..."),
+                        "EXE: $strategy" + if (debug.isNotEmpty()) " ($debug)" else "",
+                    )
+                    .joinToString("\n")
+            else ""
 
-    private var strategy: String = "NONE"
+    var strategy: String = "NONE"
     private var debug: String = ""
 
     override fun update(sim: Simulator, dt: Float) {
@@ -67,14 +69,14 @@ class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
                 // we just got here. see the sights.
                 target = null
                 landingAltitude = 0f
-                nextStrategyTime = sim.now + sightseeingTime
+                nextStrategyTime = sim.now + SIGHTSEEING_TIME
             } else {
                 // full power until we blast off
                 ship.thrust = Vec2.makeWithAngleMag(ship.angle, 1f)
 
                 strategy = "LAUNCHING"
                 debug = ""
-                nextStrategyTime = sim.now + launchThrustTime
+                nextStrategyTime = sim.now + LAUNCH_THRUST_TIME
             }
         } else {
             // select new target
@@ -109,7 +111,7 @@ class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
                 val timeToTarget = if (relativeSpeed != 0f) altitude / relativeSpeed else 1_000f
 
                 val newBrakingDistance =
-                    brakingTime * if (relativeSpeed > 0) relativeSpeed else MAIN_ENGINE_ACCEL
+                    BRAKING_TIME * if (relativeSpeed > 0) relativeSpeed else MAIN_ENGINE_ACCEL
                 brakingDistance =
                     expSmooth(brakingDistance, newBrakingDistance, dt = sim.dt, speed = 5f)
 
@@ -117,10 +119,10 @@ class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
                 // compute
                 leadingPos =
                     target.pos +
-                            Vec2.makeWithAngleMag(
-                                target.velocity.angle(),
-                                min(altitude / 2, target.velocity.mag())
-                            )
+                        Vec2.makeWithAngleMag(
+                            target.velocity.angle(),
+                            min(altitude / 2, target.velocity.mag()),
+                        )
                 leadingVector = leadingPos - ship.pos
 
                 if (altitude < landingAltitude) {
@@ -154,7 +156,7 @@ class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
                 debug = ("DV=%.0f D=%.0f T%+.1f").format(relativeSpeed, altitude, timeToTarget)
             }
             if (strategy != currentStrategy) {
-                nextStrategyTime = sim.now + strategyMinTime
+                nextStrategyTime = sim.now + STRATEGY_MIN_TIME
             }
         }
     }

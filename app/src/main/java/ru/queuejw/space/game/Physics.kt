@@ -17,6 +17,8 @@
 package ru.queuejw.space.game
 
 import android.util.ArraySet
+import androidx.compose.ui.util.fastForEach
+import kotlinx.coroutines.DisposableHandle
 import kotlin.random.Random
 
 // artificially speed up or slow down the simulation
@@ -44,7 +46,6 @@ class Fuse(var lifetime: Float) : Removable {
     fun update(dt: Float) {
         lifetime -= dt
     }
-
     override fun canBeRemoved(): Boolean {
         return lifetime < 0
     }
@@ -115,10 +116,7 @@ open class Container(val radius: Float) : Constraint {
             if ((p.pos.mag() + p.radius) > radius) {
                 p.pos =
                     p.pos * (softness) +
-                            Vec2.makeWithAngleMag(
-                                p.pos.angle(),
-                                radius - p.radius
-                            ) * (1f - softness)
+                        Vec2.makeWithAngleMag(p.pos.angle(), radius - p.radius) * (1f - softness)
             }
         }
     }
@@ -131,6 +129,7 @@ open class Simulator(val randomSeed: Long) {
     val rng = Random(randomSeed)
     val entities = ArraySet<Entity>(1000)
     val constraints = ArraySet<Constraint>(100)
+    private val simStepListeners = mutableListOf<() -> Unit>()
 
     fun add(e: Entity) = entities.add(e)
     fun remove(e: Entity) = entities.remove(e)
@@ -173,5 +172,26 @@ open class Simulator(val randomSeed: Long) {
 
         // 3. compute new velocities from updated positions and saved positions
         postUpdateAll(dt, localEntities)
+
+        // 4. notify listeners that step is complete
+        simStepListeners.fastForEach { it.invoke() }
+    }
+
+    /**
+     * Register [listener] to be invoked every time the [Simulator] completes one [step].
+     * Use this to enqueue drawing.
+     *
+     * Instead of the usual register()/unregister() pattern, we're going to borrow
+     * [kotlinx.coroutines.DisposableHandle] here. Call [DisposableHandle.dispose] on the return
+     * value to unregister.
+     */
+    fun addSimulationStepListener(listener: () -> Unit): DisposableHandle {
+        // add to listener list
+        simStepListeners += listener
+
+        return DisposableHandle {
+            // on dispose, remove from listener list
+            simStepListeners -= listener
+        }
     }
 }

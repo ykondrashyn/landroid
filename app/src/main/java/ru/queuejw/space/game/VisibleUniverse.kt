@@ -16,21 +16,35 @@
 
 package ru.queuejw.space.game
 
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.RememberObserver
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotateRad
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.util.lerp
 import androidx.core.math.MathUtils.clamp
+import kotlinx.coroutines.DisposableHandle
 import java.lang.Float.max
 import kotlin.math.exp
 import kotlin.math.sqrt
+
+const val FLAG_FLAG = true // Flags are planted on planets when you land. Yes, it's a flag for flags.
 
 const val DRAW_ORBITS = true
 const val DRAW_GRAVITATIONAL_FIELDS = true
@@ -54,22 +68,108 @@ fun DrawScope.zoom(zoom: Float, block: ZoomedDrawScope.() -> Unit) {
     ds.scale(zoom) { block(ds) }
 }
 
-class VisibleUniverse(namer: Namer, randomSeed: Long) : Universe(namer, randomSeed) {
-    // Magic variable. Every time we update it, Compose will notice and redraw the universe.
-    val triggerDraw = mutableLongStateOf(0L)
+/**
+ * A device for observing changes to a [Simulator] such as a [Universe].
+ * [observer] will be invoked each time a [Simulator.step] has completed.
+ */
+@Composable
+fun <S : Simulator> Telescope(
+    subject: S,
+    observer: (S) -> Unit
+) {
+    remember(subject) {
+        object : RememberObserver {
+            lateinit var registration: DisposableHandle
+            var currentObserver by mutableStateOf(observer)
 
-    fun simulateAndDrawFrame(nanos: Long) {
-        // By writing this value, Compose will look for functions that read it (like drawZoomed).
-        triggerDraw.longValue = nanos
+            override fun onRemembered() {
+                registration = subject.addSimulationStepListener { currentObserver(subject) }
+            }
 
-        step(nanos)
+            override fun onForgotten() {
+                registration.dispose()
+            }
+
+            override fun onAbandoned() {}
+        }
+    }.currentObserver = observer
+}
+
+fun Modifier.drawUniverse(
+    universe: Universe,
+    draw: DrawScope.(Universe) -> Unit
+): Modifier = this then UniverseElement(universe, draw)
+
+@Composable
+fun UniverseCanvas(
+    universe: Universe,
+    modifier: Modifier = Modifier,
+    draw: DrawScope.(Universe) -> Unit
+) {
+    Spacer(modifier.drawUniverse(universe, draw))
+}
+
+private class UniverseElement(
+    val universe: Universe,
+    val draw: DrawScope.(Universe) -> Unit
+) : ModifierNodeElement<UniverseModifierNode>() {
+    override fun create(): UniverseModifierNode = UniverseModifierNode(universe, draw)
+
+    // Called when a modifier is applied to a Layout whose inputs have changed
+    override fun update(node: UniverseModifierNode) {
+        node.universe = universe
+        node.draw = draw
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as UniverseElement
+
+        if (universe != other.universe) return false
+        if (draw != other.draw) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = universe.hashCode()
+        result = 31 * result + draw.hashCode()
+        return result
     }
 }
 
-fun ZoomedDrawScope.drawUniverse(universe: VisibleUniverse) {
-    with(universe) {
-        triggerDraw.longValue // Please recompose when this value changes.
+private class UniverseModifierNode(
+    universe: Universe,
+    draw: DrawScope.(Universe) -> Unit,
+) : Modifier.Node(), DrawModifierNode {
+    private val universeListener: () -> Unit = { invalidateDraw() }
+    private var removeUniverseListener: DisposableHandle? =
+        universe.addSimulationStepListener(universeListener)
 
+    var universe: Universe = universe
+        set(value) {
+            if (field === value) return
+            removeUniverseListener?.dispose()
+            field = value
+            removeUniverseListener = value.addSimulationStepListener(universeListener)
+        }
+
+    var draw: ContentDrawScope.(Universe) -> Unit = draw
+        set(value) {
+            if (field === value) return
+            field = value
+            invalidateDraw()
+        }
+
+    override fun ContentDrawScope.draw() {
+        draw(universe)
+    }
+}
+
+fun ZoomedDrawScope.drawUniverse(universe: Universe) {
+    with(universe) {
         constraints.forEach {
             when (it) {
                 is Landing -> drawLanding(it)
@@ -96,10 +196,10 @@ fun ZoomedDrawScope.drawContainer(container: Container) {
         radius = container.radius,
         center = Vec2.Zero,
         style =
-        Stroke(
-            width = 1f / zoom,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f / zoom, 8f / zoom), 0f)
-        )
+            Stroke(
+                width = 1f / zoom,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f / zoom, 8f / zoom), 0f)
+            )
     )
 }
 
@@ -130,16 +230,16 @@ fun ZoomedDrawScope.drawPlanet(planet: Planet) {
                 radius = pos.distance(orbitCenter),
                 center = orbitCenter,
                 style =
-                Stroke(
-                    width = 1f / zoom,
-                )
+                    Stroke(
+                        width = 1f / zoom,
+                    )
             )
 
         if (DRAW_GRAVITATIONAL_FIELDS) {
             drawGravitationalField(this)
         }
 
-        drawCircle(color = Colors.Companion.Eigengrau, radius = radius, center = pos)
+        drawCircle(color = Colors.Eigengrau, radius = radius, center = pos)
         drawCircle(color = color, radius = radius, center = pos, style = Stroke(2f / zoom))
     }
 }
@@ -153,33 +253,33 @@ fun ZoomedDrawScope.drawStar(star: Star) {
         rotateRad(radians = star.anim / 23f * PI2f, pivot = Vec2.Zero) {
             drawPath(
                 path =
-                createStar(
-                    radius1 = star.radius + 80,
-                    radius2 = star.radius + 250,
-                    points = STAR_POINTS
-                ),
+                    createStar(
+                        radius1 = star.radius + 80,
+                        radius2 = star.radius + 250,
+                        points = STAR_POINTS
+                    ),
                 color = star.color,
                 style =
-                Stroke(
-                    width = 3f / this@drawStar.zoom,
-                    pathEffect = PathEffect.cornerPathEffect(radius = 200f)
-                )
+                    Stroke(
+                        width = 3f / this@drawStar.zoom,
+                        pathEffect = PathEffect.cornerPathEffect(radius = 200f)
+                    )
             )
         }
         rotateRad(radians = star.anim / -19f * PI2f, pivot = Vec2.Zero) {
             drawPath(
                 path =
-                createStar(
-                    radius1 = star.radius + 20,
-                    radius2 = star.radius + 200,
-                    points = STAR_POINTS + 1
-                ),
+                    createStar(
+                        radius1 = star.radius + 20,
+                        radius2 = star.radius + 200,
+                        points = STAR_POINTS + 1
+                    ),
                 color = star.color,
                 style =
-                Stroke(
-                    width = 3f / this@drawStar.zoom,
-                    pathEffect = PathEffect.cornerPathEffect(radius = 200f)
-                )
+                    Stroke(
+                        width = 3f / this@drawStar.zoom,
+                        pathEffect = PathEffect.cornerPathEffect(radius = 200f)
+                    )
             )
         }
     }
@@ -241,7 +341,7 @@ fun ZoomedDrawScope.drawSpacecraft(ship: Spacecraft) {
                     )
                 }
                 // draw the ship
-                drawPath(path = spaceshipPath, color = Colors.Companion.Eigengrau) // fauxpaque
+                drawPath(path = spaceshipPath, color = Colors.Eigengrau) // fauxpaque
                 drawPath(
                     path = spaceshipPath,
                     color = if (transit) Color.Black else Color.White,
@@ -253,10 +353,10 @@ fun ZoomedDrawScope.drawSpacecraft(ship: Spacecraft) {
                         path = thrustPath,
                         color = Color(0xFFFF8800),
                         style =
-                        Stroke(
-                            width = 2f / this@drawSpacecraft.zoom,
-                            pathEffect = PathEffect.cornerPathEffect(radius = 1f)
-                        )
+                            Stroke(
+                                width = 2f / this@drawSpacecraft.zoom,
+                                pathEffect = PathEffect.cornerPathEffect(radius = 1f)
+                            )
                     )
                 }
             }
@@ -268,19 +368,21 @@ fun ZoomedDrawScope.drawSpacecraft(ship: Spacecraft) {
 fun ZoomedDrawScope.drawLanding(landing: Landing) {
     val v = landing.planet.pos + Vec2.makeWithAngleMag(landing.angle, landing.planet.radius)
 
-    val strokeWidth = 2f / zoom
-    val height = 80f
-    rotateRad(landing.angle, pivot = v) {
-        translate(v.x, v.y) {
-            val flagPath =
-                Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(height, 0f)
-                    lineTo(height * 0.875f, height * 0.25f)
-                    lineTo(height * 0.75f, 0f)
-                    close()
-                }
-            drawPath(flagPath, Colors.Companion.Flag, style = Stroke(width = strokeWidth))
+    if (FLAG_FLAG) {
+        val strokeWidth = 2f / zoom
+        val height = 80f
+        rotateRad(landing.angle, pivot = v) {
+            translate(v.x, v.y) {
+                val flagPath =
+                    Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(height, 0f)
+                        lineTo(height * 0.875f, height * 0.25f)
+                        lineTo(height * 0.75f, 0f)
+                        close()
+                    }
+                drawPath(flagPath, Colors.Flag, style = Stroke(width = strokeWidth))
+            }
         }
     }
 }
@@ -292,10 +394,8 @@ fun ZoomedDrawScope.drawSpark(spark: Spark) {
         when (style) {
             Spark.Style.LINE ->
                 if (opos != Vec2.Zero) drawLine(color, opos, pos, strokeWidth = size)
-
             Spark.Style.LINE_ABSOLUTE ->
                 if (opos != Vec2.Zero) drawLine(color, opos, pos, strokeWidth = size / zoom)
-
             Spark.Style.DOT -> drawCircle(color, size, pos)
             Spark.Style.DOT_ABSOLUTE -> drawCircle(color, size, pos / zoom)
             Spark.Style.RING ->
@@ -315,7 +415,7 @@ fun ZoomedDrawScope.drawTrack(track: Track) {
             drawPoints(
                 positions,
                 pointMode = PointMode.Lines,
-                color = Colors.Companion.Track,
+                color = Colors.Track,
                 strokeWidth = 1f / zoom
             )
         } else {
@@ -332,7 +432,7 @@ fun ZoomedDrawScope.drawTrack(track: Track) {
 }
 
 fun ZoomedDrawScope.drawAutopilot(autopilot: Autopilot) {
-    val color = Colors.Companion.Autopilot.copy(alpha = 0.5f)
+    val color = Colors.Autopilot.copy(alpha = 0.5f)
 
     autopilot.target?.let { target ->
         val zoom = zoom
@@ -340,10 +440,10 @@ fun ZoomedDrawScope.drawAutopilot(autopilot: Autopilot) {
             translate(target.pos.x, target.pos.y) {
                 drawPath(
                     path =
-                    createPolygon(
-                        radius = target.radius + autopilot.brakingDistance,
-                        sides = 15 // Autopilot introduced in Android 15
-                    ),
+                        createPolygon(
+                            radius = target.radius + autopilot.brakingDistance,
+                            sides = 15 // Autopilot introduced in Android 15
+                        ),
                     color = color,
                     style = Stroke(1f / zoom)
                 )

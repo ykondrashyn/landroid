@@ -16,6 +16,7 @@
 
 package ru.queuejw.space.game
 
+import android.os.Build
 import android.service.dreams.DreamService
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.mutableStateOf
@@ -56,10 +57,12 @@ class DreamUniverse : DreamService() {
             }
         }
 
+    private var notifier: UniverseProgressNotifier? = null
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
 
-        val universe = VisibleUniverse(namer = Namer(resources), randomSeed = randomSeed())
+        val universe = Universe(namer = Namer(resources), randomSeed = randomSeed())
 
         isInteractive = false
 
@@ -72,13 +75,13 @@ class DreamUniverse : DreamService() {
             // true randomness to keep things interesting. So use Random (not universe.rng).
             universe.ship.pos =
                 universe.star.pos +
-                        Vec2.makeWithAngleMag(
-                            Random.nextFloat() * PI2f,
-                            Random.nextFloatInRange(
-                                PLANET_ORBIT_RANGE.start,
-                                PLANET_ORBIT_RANGE.endInclusive
-                            )
-                        )
+                    Vec2.makeWithAngleMag(
+                        Random.nextFloat() * PI2f,
+                        Random.nextFloatInRange(
+                            PLANET_ORBIT_RANGE.start,
+                            PLANET_ORBIT_RANGE.endInclusive,
+                        ),
+                    )
         }
 
         // enable autopilot in screensaver mode
@@ -94,7 +97,10 @@ class DreamUniverse : DreamService() {
         composeView.setContent {
             Spaaaace(modifier = Modifier.fillMaxSize(), u = universe, foldState = foldState)
             DebugText(DEBUG_TEXT)
-            Telemetry(universe)
+            Telemetry(universe, showControls = false)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            notifier = UniverseProgressNotifier(this, universe)
         }
 
         composeView.setViewTreeLifecycleOwner(lifecycleOwner)
