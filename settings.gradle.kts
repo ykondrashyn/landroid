@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Space"
 include(":app")
+include(":app-desktop")
