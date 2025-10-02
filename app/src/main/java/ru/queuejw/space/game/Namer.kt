@@ -111,13 +111,13 @@ class Namer(resources: Resources) : INamer {
 
     val TEMPLATE_REGEX = Regex("""\{(flora|fauna|planet|atmo)\}""")
 
-    fun describeActivity(rng: Random, target: Planet?): String {
+    fun describeActivity(rng: Random, target: PlanetInfo?): String {
         return activities.pull(rng).replace(TEMPLATE_REGEX) {
             when (it.groupValues[1]) {
                 "flora" -> (target?.flora ?: "SOME") + " " + floraPlural(rng)
                 "fauna" -> (target?.fauna ?: "SOME") + " " + faunaPlural(rng)
                 "atmo" -> (target?.atmosphere ?: "SOME") + " " + atmoPlural(rng)
-                "planet" -> (target?.description ?: "SOME BODY") // once told me
+                "planet" -> (target?.description ?: "SOME BODY")
                 else -> "unknown template tag: ${it.groupValues[0]}"
             }
         }

@@ -294,7 +294,13 @@ open class Universe(val namer: INamer, randomSeed: Long) : Simulator(randomSeed)
                     //                        &&
                     //                        vDiff < 100f
                     ) {
-                        val landing = Landing(ship, planet, a, namer.describeActivity(rng, planet))
+                        val info = PlanetInfo(
+                            description = planet.description,
+                            atmosphere = planet.atmosphere,
+                            flora = planet.flora,
+                            fauna = planet.fauna,
+                        )
+                        val landing = Landing(ship, planet, a, namer.describeActivity(rng, info))
                         ship.landing = landing
                         ship.velocity = planet.velocity
                         add(landing)

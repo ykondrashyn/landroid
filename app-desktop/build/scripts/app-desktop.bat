@@ -70,7 +70,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\app-desktop-0.0.1-desktop.jar;%APP_HOME%\lib\kotlin-stdlib-2.2.10.jar;%APP_HOME%\lib\kotlin-stdlib-jdk7-2.2.10.jar;%APP_HOME%\lib\annotations-13.0.jar
+set CLASSPATH=%APP_HOME%\lib\app-desktop-0.0.1-desktop.jar;%APP_HOME%\lib\core-sim-0.0.1-core.jar;%APP_HOME%\lib\kotlin-stdlib-2.2.10.jar;%APP_HOME%\lib\kotlin-stdlib-jdk7-2.2.10.jar;%APP_HOME%\lib\annotations-13.0.jar
 
 
 @rem Execute app-desktop

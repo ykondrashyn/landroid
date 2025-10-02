@@ -38,6 +38,8 @@ android {
 
 dependencies {
 
+    implementation(project(":core-sim"))
+
     implementation(libs.kotlin.stdlib.jdk7)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

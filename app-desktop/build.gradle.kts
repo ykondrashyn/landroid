@@ -16,6 +16,12 @@ application {
     mainClass = "ru.queuejw.space.desktop.MainKt"
 }
 
+dependencies {
+    implementation(project(":core-sim"))
+    implementation(libs.kotlin.stdlib.jdk7)
+}
+
+
 // Simple uber JAR task for JVM app
 tasks.register<Jar>("packageUberJarForCurrentOS") {
     archiveClassifier.set("all")
