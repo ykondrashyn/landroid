@@ -118,7 +118,7 @@ class Star(val cls: StarClass, radius: Float) :
     }
 }
 
-open class Universe(val namer: Namer, randomSeed: Long) : Simulator(randomSeed) {
+open class Universe(val namer: INamer, randomSeed: Long) : Simulator(randomSeed) {
     var latestDiscovery: Planet? = null
     lateinit var star: Star
     lateinit var ship: Spacecraft

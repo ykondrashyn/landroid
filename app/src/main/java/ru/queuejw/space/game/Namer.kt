@@ -24,7 +24,7 @@ const val LETTER_PROB = 0.3f
 const val NUMBER_PROB = 0.3f
 const val RARE_PROB = 0.05f
 
-class Namer(resources: Resources) {
+class Namer(resources: Resources) : INamer {
     private val planetDescriptors = Bag(resources.getStringArray(R.array.planet_descriptors))
     private val lifeDescriptors = Bag(resources.getStringArray(R.array.life_descriptors))
     private val anyDescriptors = Bag(resources.getStringArray(R.array.any_descriptors))
