@@ -101,6 +101,51 @@ private fun parseQuery(query: String?): Map<String, String> {
     }.toMap()
 }
 
+private fun readBody(ex: HttpExchange): String =
+    ex.requestBody.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+
+private fun parseJsonNumbers(body: String): Map<String, String> {
+    // Very small, permissive parser for flat JSON objects with numeric values
+    // e.g., {"dt":0.016,"thrust":1,"angle":0.0}
+    val s = body.trim().removePrefix("{").removeSuffix("}")
+    if (s.isBlank()) return emptyMap()
+    val result = mutableMapOf<String, String>()
+    s.split(',').forEach { pair ->
+        val idx = pair.indexOf(':')
+        if (idx > 0) {
+            val k = pair.substring(0, idx).trim().trim('"', '\'', ' ')
+            val v = pair.substring(idx + 1).trim()
+            // strip quotes if present
+            val vv = if (v.startsWith('"') && v.endsWith('"')) v.substring(1, v.length - 1) else v
+            result[k] = vv
+        }
+    }
+    return result
+}
+
+private fun parseArgs(args: Array<String>): Map<String, String> = buildMap {
+    args.forEach { a ->
+        if (a.startsWith("--")) {
+            val s = a.removePrefix("--")
+            val i = s.indexOf('=')
+            if (i > 0) put(s.substring(0, i), s.substring(i + 1)) else put(s, "true")
+        }
+    }
+}
+
+private fun getParams(ex: HttpExchange): Map<String, String> {
+    val q = parseQuery(ex.requestURI.query).toMutableMap()
+    if (ex.requestMethod.equals("POST", ignoreCase = true)) {
+        val ct = ex.requestHeaders.getFirst("Content-Type") ?: ""
+        if (ct.contains("application/json", ignoreCase = true)) {
+            val json = parseJsonNumbers(readBody(ex))
+            q.putAll(json)
+        }
+    }
+    return q
+}
+
+
 private fun HttpExchange.writeJson(status: Int, body: String) {
 
     sendResponseHeaders(status, body.toByteArray().size.toLong())
@@ -108,9 +153,12 @@ private fun HttpExchange.writeJson(status: Int, body: String) {
     responseBody.use { it.write(body.toByteArray()) }
 }
 
-fun main() {
+fun main(args: Array<String>) {
+    val argv = parseArgs(args)
     val service = MCPService(seed = 42L)
     val server = HttpServer.create(InetSocketAddress("127.0.0.1", 8080), 0)
+    val ap = (argv["autopilot"] ?: "false").lowercase(Locale.US)
+    if (ap == "1" || ap == "true" || ap == "on" || ap == "yes") service.setAutopilot(true)
 
     server.createContext("/health") { ex ->
         ex.writeJson(200, "{\"status\":\"ok\"}")
@@ -121,14 +169,14 @@ fun main() {
     }
 
     server.createContext("/step") { ex ->
-        val p = parseQuery(ex.requestURI.query)
+        val p = getParams(ex)
         val dt = p["dt"]?.toFloatOrNull() ?: 1f / 60f
         val now = service.step(dt)
-        ex.writeJson(200, "{\"now\":${"%.3f".format(now)}}")
+        ex.writeJson(200, String.format(Locale.US, "{\"now\":%.3f}", now))
     }
 
     server.createContext("/act") { ex ->
-        val p = parseQuery(ex.requestURI.query)
+        val p = getParams(ex)
         val thrust = p["thrust"]?.toFloatOrNull()
         val angle = p["angle"]?.toFloatOrNull()
         service.act(thrust, angle)
@@ -141,23 +189,9 @@ fun main() {
         service.reset(seed)
         ex.writeJson(200, "{\"ok\":true}")
     }
-    server.createContext("/autopilot") { ex ->
-        val p = parseQuery(ex.requestURI.query)
-        p["enabled"]?.let { raw ->
-            val on = when (raw.lowercase(Locale.US)) {
-                "1", "true", "on", "yes" -> true
-                "0", "false", "off", "no" -> false
-                else -> service.autopilotEnabled
-            }
-            service.setAutopilot(on)
-        }
-        ex.writeJson(200, "{" + "\"autopilot\":" + service.autopilotEnabled + "}")
-    }
-
-
     server.executor = null
     server.start()
-    println("MCP server listening on http://127.0.0.1:8080  (health, observe, act, step, reset, autopilot)")
+    println("MCP server listening on http://127.0.0.1:8080  (health, observe, act, step, reset)")
     // Keep running
 }
 
