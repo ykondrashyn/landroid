@@ -155,8 +155,10 @@ private fun HttpExchange.writeJson(status: Int, body: String) {
 
 fun main(args: Array<String>) {
     val argv = parseArgs(args)
-    val service = MCPService(seed = 42L)
-    val server = HttpServer.create(InetSocketAddress("127.0.0.1", 8080), 0)
+    val seed = argv["seed"]?.toLongOrNull() ?: 42L
+    val port = argv["port"]?.toIntOrNull() ?: 8080
+    val service = MCPService(seed = seed)
+    val server = HttpServer.create(InetSocketAddress("127.0.0.1", port), 0)
     val ap = (argv["autopilot"] ?: "false").lowercase(Locale.US)
     if (ap == "1" || ap == "true" || ap == "on" || ap == "yes") service.setAutopilot(true)
 
@@ -191,7 +193,8 @@ fun main(args: Array<String>) {
     }
     server.executor = null
     server.start()
-    println("MCP server listening on http://127.0.0.1:8080  (health, observe, act, step, reset)")
+    println("MCP server listening on http://127.0.0.1:$port  (health, observe, act, step, reset)")
+    println("  seed=$seed, autopilot=${service.autopilotEnabled}")
     // Keep running
 }
 

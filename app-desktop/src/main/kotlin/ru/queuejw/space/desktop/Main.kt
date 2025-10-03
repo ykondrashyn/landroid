@@ -16,8 +16,16 @@ private const val WIDTH = 1024
 private const val HEIGHT = 768
 
 fun main(args: Array<String>) {
+    // Parse seed from args
+    var seed = 42L
+    args.forEach { arg ->
+        if (arg.startsWith("--seed=")) {
+            seed = arg.removePrefix("--seed=").toLongOrNull() ?: 42L
+        }
+    }
+
     val frame = JFrame("Space - Desktop Bootstrap")
-    val panel = GamePanel()
+    val panel = GamePanel(seed)
     frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
     frame.contentPane.add(panel)
     frame.setSize(WIDTH, HEIGHT)
@@ -26,13 +34,13 @@ fun main(args: Array<String>) {
     panel.start()
 }
 
-private class GamePanel : JPanel(), KeyListener, Runnable {
+private class GamePanel(seed: Long) : JPanel(), KeyListener, Runnable {
     // Fixed timestep loop (60 Hz)
     private val targetFps = 60.0
     private val dt = 1.0 / targetFps
 
     // Core simulation
-    private val universe = Universe(DesktopNamer(), randomSeed = 42L).apply { initRandom() }
+    private val universe = Universe(DesktopNamer(), randomSeed = seed).apply { initRandom() }
 
     private var up = false
     private var down = false

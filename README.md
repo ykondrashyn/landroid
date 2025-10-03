@@ -25,25 +25,38 @@ This project uses a ports-and-adapters style with these modules (current):
 
 ## Build & Run
 
+### Build All Modules
+```bash
+# Build all modules and create distributions
+./scripts/build-all.sh
+```
+
 ### Android Mode
 ```bash
-./gradlew :app-android:installDebug
+./gradlew :app:installDebug
+# Note: Requires Android SDK (not available in current environment)
 ```
 
 ### Desktop Mode
 ```bash
-# Run directly
-./gradlew :app-desktop:run
+# Run using script (recommended)
+./scripts/run-desktop.sh --seed=42
 
-# Build uber JAR
+# Or run directly with Gradle
+./gradlew :app-desktop:run --args="--seed=42"
+
+# Or build uber JAR and run standalone
 ./gradlew :app-desktop:packageUberJarForCurrentOS
 java -jar app-desktop/build/libs/app-desktop-all.jar --seed=42
 ```
 
 ### Desktop + MCP Mode
 ```bash
-# Run MCP server (HTTP on 127.0.0.1:8080); autopilot default is OFF
-./gradlew :control-mcp:run --args="--autopilot=false"
+# Run MCP server using script (recommended)
+./scripts/run-mcp.sh --seed=42 --autopilot=false --port=8080
+
+# Or run directly with Gradle
+./gradlew :control-mcp:run --args="--seed=42 --autopilot=false --port=8080"
 
 # Basic checks (in another terminal)
 curl -s http://127.0.0.1:8080/health
