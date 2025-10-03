@@ -13,5 +13,6 @@ java {
 
 dependencies {
     implementation(libs.kotlin.stdlib.jdk7)
+    testImplementation(kotlin("test"))
 }
 
