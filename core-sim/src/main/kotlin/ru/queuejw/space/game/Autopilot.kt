@@ -165,3 +165,4 @@ class Autopilot(val ship: Spacecraft, val universe: Universe) : Entity {
         if (!enabled) return
     }
 }
+

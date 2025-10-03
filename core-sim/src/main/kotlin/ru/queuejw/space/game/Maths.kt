@@ -3,6 +3,8 @@ package ru.queuejw.space.game
 import kotlin.math.exp
 import kotlin.math.pow
 
+fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
+
 /** smoothstep. Ken Perlin's version */
 fun smooth(x: Float): Float {
     return x * x * x * (x * (x * 6 - 15) + 10)

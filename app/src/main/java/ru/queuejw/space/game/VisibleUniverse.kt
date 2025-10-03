@@ -240,13 +240,13 @@ fun ZoomedDrawScope.drawPlanet(planet: Planet) {
         }
 
         drawCircle(color = Colors.Eigengrau, radius = radius, center = pos)
-        drawCircle(color = color, radius = radius, center = pos, style = Stroke(2f / zoom))
+        drawCircle(color = color.toComposeColor(), radius = radius, center = pos, style = Stroke(2f / zoom))
     }
 }
 
 fun ZoomedDrawScope.drawStar(star: Star) {
     translate(star.pos.x, star.pos.y) {
-        drawCircle(color = star.color, radius = star.radius, center = Vec2.Zero)
+        drawCircle(color = star.color.toComposeColor(), radius = star.radius, center = Vec2.Zero)
 
         if (DRAW_STAR_GRAVITATIONAL_FIELDS) this@drawStar.drawGravitationalField(star)
 
@@ -258,7 +258,7 @@ fun ZoomedDrawScope.drawStar(star: Star) {
                         radius2 = star.radius + 250,
                         points = STAR_POINTS
                     ),
-                color = star.color,
+                color = star.color.toComposeColor(),
                 style =
                     Stroke(
                         width = 3f / this@drawStar.zoom,
@@ -274,7 +274,7 @@ fun ZoomedDrawScope.drawStar(star: Star) {
                         radius2 = star.radius + 200,
                         points = STAR_POINTS + 1
                     ),
-                color = star.color,
+                color = star.color.toComposeColor(),
                 style =
                     Stroke(
                         width = 3f / this@drawStar.zoom,
@@ -393,14 +393,14 @@ fun ZoomedDrawScope.drawSpark(spark: Spark) {
         val life = 1f - fuse.lifetime / ttl
         when (style) {
             Spark.Style.LINE ->
-                if (opos != Vec2.Zero) drawLine(color, opos, pos, strokeWidth = size)
+                if (opos != Vec2.Zero) drawLine(color.toComposeColor(), opos, pos, strokeWidth = size)
             Spark.Style.LINE_ABSOLUTE ->
-                if (opos != Vec2.Zero) drawLine(color, opos, pos, strokeWidth = size / zoom)
-            Spark.Style.DOT -> drawCircle(color, size, pos)
-            Spark.Style.DOT_ABSOLUTE -> drawCircle(color, size, pos / zoom)
+                if (opos != Vec2.Zero) drawLine(color.toComposeColor(), opos, pos, strokeWidth = size / zoom)
+            Spark.Style.DOT -> drawCircle(color.toComposeColor(), size, pos)
+            Spark.Style.DOT_ABSOLUTE -> drawCircle(color.toComposeColor(), size, pos / zoom)
             Spark.Style.RING ->
                 drawCircle(
-                    color = color.copy(alpha = color.alpha * (1f - life)),
+                    color = run { val cc = color.toComposeColor(); cc.copy(alpha = cc.alpha * (1f - life)) },
                     radius = exp(lerp(size, 3f * size, life)) - 1f,
                     center = pos,
                     style = Stroke(width = 1f / zoom)
