@@ -1,24 +1,5 @@
-/*
- * Copyright (C) 2023 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package ru.queuejw.space.game
 
-import android.util.ArraySet
-import androidx.compose.ui.util.fastForEach
-import kotlinx.coroutines.DisposableHandle
 import kotlin.random.Random
 
 // artificially speed up or slow down the simulation
@@ -43,12 +24,8 @@ interface Removable {
 }
 
 class Fuse(var lifetime: Float) : Removable {
-    fun update(dt: Float) {
-        lifetime -= dt
-    }
-    override fun canBeRemoved(): Boolean {
-        return lifetime < 0
-    }
+    fun update(dt: Float) { lifetime -= dt }
+    override fun canBeRemoved(): Boolean = lifetime < 0
 }
 
 open class Body(var name: String = "Unknown") : Entity {
@@ -64,24 +41,15 @@ open class Body(var name: String = "Unknown") : Entity {
 
     var omega: Float
         get() = angle - oangle
-        set(value) {
-            oangle = angle - value
-        }
+        set(value) { oangle = angle - value }
 
     var oangle = 0f
 
     override fun update(sim: Simulator, dt: Float) {
         if (dt <= 0) return
-
-        // integrate velocity
         val vscaled = velocity * dt
         opos = pos
         pos += vscaled
-
-        // integrate angular velocity
-        //        val wscaled = omega * timescale
-        //        oangle = angle
-        //        angle = (angle + wscaled) % PI2f
     }
 
     override fun postUpdate(sim: Simulator, dt: Float) {
@@ -99,17 +67,10 @@ open class Container(val radius: Float) : Constraint {
     private val list = ArraySet<Body>()
     private val softness = 0.0f
 
-    override fun toString(): String {
-        return "Container($radius)"
-    }
+    override fun toString(): String = "Container($radius)"
 
-    fun add(p: Body) {
-        list.add(p)
-    }
-
-    fun remove(p: Body) {
-        list.remove(p)
-    }
+    fun add(p: Body) { list.add(p) }
+    fun remove(p: Body) { list.remove(p) }
 
     override fun solve(sim: Simulator, dt: Float) {
         for (p in list) {
@@ -150,48 +111,25 @@ open class Simulator(val randomSeed: Long) {
 
     fun step(nanos: Long) {
         val firstFrame = (wallClockNanos == 0L)
-
         dt = (nanos - wallClockNanos) / 1_000_000_000f * TIME_SCALE
         this.wallClockNanos = nanos
-
-        // we start the simulation on the next frame
         if (firstFrame || dt > MAX_VALID_DT) return
-
-        // simulation is running; we start accumulating simulation time
         this.now += dt
 
         val localEntities = ArraySet(entities)
         val localConstraints = ArraySet(constraints)
 
-        // position-based dynamics approach:
-        // 1. apply acceleration to velocity, save positions, apply velocity to position
         updateAll(dt, localEntities)
-
-        // 2. solve all constraints
         solveAll(dt, localConstraints)
-
-        // 3. compute new velocities from updated positions and saved positions
         postUpdateAll(dt, localEntities)
 
-        // 4. notify listeners that step is complete
-        simStepListeners.fastForEach { it.invoke() }
+        simStepListeners.forEach { it.invoke() }
     }
 
-    /**
-     * Register [listener] to be invoked every time the [Simulator] completes one [step].
-     * Use this to enqueue drawing.
-     *
-     * Instead of the usual register()/unregister() pattern, we're going to borrow
-     * [kotlinx.coroutines.DisposableHandle] here. Call [DisposableHandle.dispose] on the return
-     * value to unregister.
-     */
+    /** Register [listener] to be invoked every time the [Simulator] completes one [step]. */
     fun addSimulationStepListener(listener: () -> Unit): DisposableHandle {
-        // add to listener list
         simStepListeners += listener
-
-        return DisposableHandle {
-            // on dispose, remove from listener list
-            simStepListeners -= listener
-        }
+        return DisposableHandle { simStepListeners -= listener }
     }
 }
+
