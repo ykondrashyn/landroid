@@ -3,20 +3,24 @@
 ## Current Status
 
 ### M0: Baseline Verification - PARTIAL
-- Android SDK not available in current environment
-- Cannot build/test Android APK at this time
-- Moving forward with desktop implementation to demonstrate architecture
+- Android SDK not available in current environment (Android build not verified yet)
 
-### Environment Setup Required
-To complete Android verification:
+### M1: Desktop Bootstrap - COMPLETE
+- Swing desktop window with 60 Hz loop and keyboard controls
+
+### M2: Proper Separation & Reuse - COMPLETE (initial)
+- New `:core-sim` module with Vec2, Physics, Universe, Autopilot, RNG/Naming
+- Android app adapted via lightweight adapters (Vec2/Color) at UI boundary
+- Desktop app now runs the shared Universe
+
+### M3: MCP Bridge - STARTED
+- New `:control-mcp` module with headless HTTP skeleton (observe/act/step/reset)
+
+### Environment Setup (Android)
+To build Android locally:
 1. Install Android SDK
 2. Set ANDROID_HOME or update local.properties with sdk.dir
 3. Run `./gradlew :app:installDebug`
-
-### Next Steps
-- Proceed with M1: Desktop Bootstrap
-- Implement multimode architecture
-- Document Android build requirements for future setup
 
 ## Architecture Progress
 

@@ -14,16 +14,14 @@ Upstream repository: https://github.com/queuejw/Space.git
 
 ## Architecture
 
-This project uses a ports-and-adapters architecture with the following modules:
+This project uses a ports-and-adapters style with these modules (current):
 
-- `:core-sim` → Pure Kotlin simulation (entities, physics, update loop, scenarios)
-- `:core-ports` → Interfaces for Renderer, Input, Clock, Storage, Telemetry
-- `:platform-android` → Android-specific adapters for rendering/input/timing
-- `:platform-desktop` → Compose Desktop adapters for rendering/input/timing
-- `:control-human` → Maps touch/keyboard to high-level Actions via ActionBus
-- `:control-mcp` → Optional localhost server (WebSocket/HTTP) with observe/act/step/reset
-- `:app-android` → Android APK (core + android adapters + human control)
-- `:app-desktop` → Desktop JAR (core + desktop adapters + human control + optional MCP)
+- `:core-sim` → Pure Kotlin simulation (Vec2, Physics, Universe, Autopilot, RNG/Naming)
+- `:app` → Android app (Compose UI adapters for rendering)
+- `:app-desktop` → Swing Desktop app using shared `:core-sim`
+- `:control-mcp` → Headless HTTP server exposing observe/act/step/reset on localhost
+
+(Planned later: additional adapter/control modules as needed.)
 
 ## Build & Run
 
@@ -37,30 +35,37 @@ This project uses a ports-and-adapters architecture with the following modules:
 # Run directly
 ./gradlew :app-desktop:run
 
-# Build JAR
+# Build uber JAR
 ./gradlew :app-desktop:packageUberJarForCurrentOS
-java -jar app-desktop/build/compose/jars/SpaceDesktop-all.jar --seed=42
+java -jar app-desktop/build/libs/app-desktop-all.jar --seed=42
 ```
 
 ### Desktop + MCP Mode
 ```bash
-# With MCP API
-java -jar SpaceDesktop-all.jar --mcp --seed=42
+# Run MCP server (HTTP on 127.0.0.1:8080)
+./gradlew :control-mcp:run
 
-# Headless (no rendering)
-java -jar SpaceDesktop-all.jar --mcp --headless --seed=42
+# Basic checks (in another terminal)
+curl -s http://127.0.0.1:8080/health
+curl -s http://127.0.0.1:8080/observe
+curl -s "http://127.0.0.1:8080/act?thrust=1&angle=0.0"
+curl -s "http://127.0.0.1:8080/step?dt=0.016"
+curl -s "http://127.0.0.1:8080/reset?seed=42"
 ```
 
 ## MCP API
 
-When `--mcp` flag is enabled, a localhost WebSocket server provides:
+MCP HTTP endpoints (localhost only):
 
-- `observe` → Get current game state (ship pose/velocity, planets, score)
-- `act` → Send actions `{ rotate: -1..1, thrust: 0..1 }`
-- `step` → Advance N simulation frames
-- `reset` → Reset with optional seed
+- `GET /observe` → current state (time, ship pose/velocity, body count)
+- `POST/GET /act?thrust=0..1&angle=<radians>` → set thrust magnitude and/or ship angle
+- `POST/GET /step?dt=<seconds>` → advance simulation time by dt
+- `POST/GET /reset?seed=<long>` → reset universe with seed
+- `GET /health` → {"status":"ok"}
 
-Server binds to `127.0.0.1` with rate limiting and input validation.
+Notes:
+- Deterministic: fixed-timestep stepping with artificial time inside the server
+- Local-only bind (127.0.0.1) for safety
 
 ## Determinism
 
