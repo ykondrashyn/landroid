@@ -24,3 +24,4 @@ include(":app")
 include(":app-desktop")
 
 include(":core-sim")
+include(":control-mcp")
