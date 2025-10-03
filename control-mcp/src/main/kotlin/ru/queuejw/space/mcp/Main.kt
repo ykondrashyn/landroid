@@ -8,6 +8,7 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.Locale
 import kotlin.math.PI
 
 private class MinimalNamer : INamer {
@@ -43,10 +44,12 @@ private class MCPService(seed: Long) {
         }
     }
 
+    private fun fmt2(v: Float) = String.format(Locale.US, "%.2f", v)
+    private fun fmt3(v: Float) = String.format(Locale.US, "%.3f", v)
     fun observe(): String {
         val ship = universe.ship
         val bodies = universe.planets.size + 1
-        return """{"now":${"%.3f".format(universe.now)},"ship":{"x":${"%.2f".format(ship.pos.x)},"y":${"%.2f".format(ship.pos.y)},"vx":${"%.2f".format(ship.velocity.x)},"vy":${"%.2f".format(ship.velocity.y)},"angle":${"%.3f".format(ship.angle)}},"bodies":$bodies}"""
+        return """{"now":${fmt3(universe.now)},"ship":{"x":${fmt2(ship.pos.x)},"y":${fmt2(ship.pos.y)},"vx":${fmt2(ship.velocity.x)},"vy":${fmt2(ship.velocity.y)},"angle":${fmt3(ship.angle)}},"bodies":$bodies}"""
     }
 }
 
