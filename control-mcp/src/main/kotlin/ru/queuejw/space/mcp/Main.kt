@@ -24,9 +24,35 @@ private class MCPService(seed: Long) {
     var universe: Universe = Universe(MinimalNamer(), seed).apply { initRandom() }
         private set
 
+    var autopilotEnabled: Boolean = false
+
+    private fun ensureAutopilotState() {
+        val ship = universe.ship
+        if (autopilotEnabled) {
+            if (ship.autopilot == null) {
+                val ap = Autopilot(ship, universe)
+                ship.autopilot = ap
+                universe.add(ap)
+            }
+            ship.autopilot?.enabled = true
+        } else {
+            ship.autopilot?.let { ap ->
+                ap.enabled = false
+                universe.remove(ap)
+                ship.autopilot = null
+            }
+        }
+    }
+
+    fun setAutopilot(enabled: Boolean) {
+        autopilotEnabled = enabled
+        ensureAutopilotState()
+    }
+
     fun reset(seed: Long) {
         currentNanos = 1_000_000L
         universe = Universe(MinimalNamer(), seed).apply { initRandom() }
+        ensureAutopilotState()
     }
 
     fun step(dtSeconds: Float): Float {
@@ -46,10 +72,21 @@ private class MCPService(seed: Long) {
 
     private fun fmt2(v: Float) = String.format(Locale.US, "%.2f", v)
     private fun fmt3(v: Float) = String.format(Locale.US, "%.3f", v)
+    private fun jsonString(s: String): String = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
     fun observe(): String {
         val ship = universe.ship
         val bodies = universe.planets.size + 1
-        return """{"now":${fmt3(universe.now)},"ship":{"x":${fmt2(ship.pos.x)},"y":${fmt2(ship.pos.y)},"vx":${fmt2(ship.velocity.x)},"vy":${fmt2(ship.velocity.y)},"angle":${fmt3(ship.angle)}},"bodies":$bodies}"""
+        val landed = ship.landing != null
+        val landingJson = if (landed) {
+            val planetName = ship.landing!!.planet.name
+            "{\"landed\":true,\"planet\":${jsonString(planetName)}}"
+        } else {
+            "{\"landed\":false}"
+        }
+        val nearest = universe.closestPlanet()
+        val nearestJson = "{\"name\":${jsonString(nearest.name)},\"dist\":${fmt2((nearest.pos - ship.pos).mag())}}"
+        return """{"now":${fmt3(universe.now)},"ship":{"x":${fmt2(ship.pos.x)},"y":${fmt2(ship.pos.y)},"vx":${fmt2(ship.velocity.x)},"vy":${fmt2(ship.velocity.y)},"angle":${fmt3(ship.angle)}},"bodies":$bodies,"autopilot":$autopilotEnabled,"landing":$landingJson,"nearest":$nearestJson}"""
     }
 }
 
@@ -65,6 +102,7 @@ private fun parseQuery(query: String?): Map<String, String> {
 }
 
 private fun HttpExchange.writeJson(status: Int, body: String) {
+
     sendResponseHeaders(status, body.toByteArray().size.toLong())
     responseHeaders.add("Content-Type", "application/json")
     responseBody.use { it.write(body.toByteArray()) }
@@ -103,10 +141,23 @@ fun main() {
         service.reset(seed)
         ex.writeJson(200, "{\"ok\":true}")
     }
+    server.createContext("/autopilot") { ex ->
+        val p = parseQuery(ex.requestURI.query)
+        p["enabled"]?.let { raw ->
+            val on = when (raw.lowercase(Locale.US)) {
+                "1", "true", "on", "yes" -> true
+                "0", "false", "off", "no" -> false
+                else -> service.autopilotEnabled
+            }
+            service.setAutopilot(on)
+        }
+        ex.writeJson(200, "{" + "\"autopilot\":" + service.autopilotEnabled + "}")
+    }
+
 
     server.executor = null
     server.start()
-    println("MCP server listening on http://127.0.0.1:8080  (health, observe, act, step, reset)")
+    println("MCP server listening on http://127.0.0.1:8080  (health, observe, act, step, reset, autopilot)")
     // Keep running
 }
 
