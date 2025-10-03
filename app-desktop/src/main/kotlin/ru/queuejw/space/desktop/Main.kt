@@ -8,6 +8,9 @@ import javax.swing.JPanel
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import ru.queuejw.space.game.Universe
+import ru.queuejw.space.game.Vec2
+
 
 private const val WIDTH = 1024
 private const val HEIGHT = 768
@@ -28,11 +31,8 @@ private class GamePanel : JPanel(), KeyListener, Runnable {
     private val targetFps = 60.0
     private val dt = 1.0 / targetFps
 
-    // Simple ship state
-    private var x = WIDTH / 2.0
-    private var y = HEIGHT / 2.0
-    private var angle = 0.0
-    private var speed = 0.0
+    // Core simulation
+    private val universe = Universe(DesktopNamer(), randomSeed = 42L).apply { initRandom() }
 
     private var up = false
     private var down = false
@@ -68,6 +68,9 @@ private class GamePanel : JPanel(), KeyListener, Runnable {
                 update(dt)
                 lag -= dt
             }
+            // Step the core simulation with wall-clock nanoseconds
+            universe.step(current)
+
             repaint()
 
             try { Thread.sleep(2) } catch (_: InterruptedException) {}
@@ -75,26 +78,13 @@ private class GamePanel : JPanel(), KeyListener, Runnable {
     }
 
     private fun update(dt: Double) {
-        // Steering and thrust
+        // Map keys to the real spacecraft
         val turnRate = Math.toRadians(180.0) // deg/s
-        val accel = 300.0 // px/s^2
-        val drag = 0.98 // simple damping
-
-        if (left) angle -= turnRate * dt
-        if (right) angle += turnRate * dt
-        if (up) speed += accel * dt
-        if (down) speed -= accel * dt
-
-        speed *= drag
-
-        x += cos(angle) * speed * dt
-        y += sin(angle) * speed * dt
-
-        // Wrap around edges
-        if (x < 0) x += width
-        if (x > width) x -= width
-        if (y < 0) y += height
-        if (y > height) y -= height
+        val ship = universe.ship
+        if (left) ship.angle -= (turnRate * dt).toFloat()
+        if (right) ship.angle += (turnRate * dt).toFloat()
+        ship.thrust = if (up) Vec2.makeWithAngleMag(ship.angle, 1f) else Vec2.Zero
+        if (down) ship.thrust = Vec2.Zero
     }
 
     override fun paintComponent(g0: Graphics) {
@@ -113,15 +103,36 @@ private class GamePanel : JPanel(), KeyListener, Runnable {
             }
         }
 
-        // Draw ship (triangle)
-        val shipSize = 16.0
-        val noseX = x + cos(angle) * shipSize
-        val noseY = y + sin(angle) * shipSize
-        val leftX = x + cos(angle + Math.PI * 3 / 4) * shipSize * 0.7
-        val leftY = y + sin(angle + Math.PI * 3 / 4) * shipSize * 0.7
-        val rightX = x + cos(angle - Math.PI * 3 / 4) * shipSize * 0.7
-        val rightY = y + sin(angle - Math.PI * 3 / 4) * shipSize * 0.7
+        // Draw actual universe: center on ship
+        val ship = universe.ship
+        val centerX = width / 2.0
+        val centerY = height / 2.0
+        val scale = 0.1 // world px to screen px
 
+        // Star
+        universe.star.let { star ->
+            val sx = centerX + (star.pos.x - ship.pos.x) * scale
+            val sy = centerY + (star.pos.y - ship.pos.y) * scale
+            val r = (star.radius * scale).toInt().coerceAtLeast(1)
+            g.color = Color(255, 235, 130)
+            g.fillOval((sx - r).toInt(), (sy - r).toInt(), r * 2, r * 2)
+        }
+        // Planets
+        universe.planets.forEach { p ->
+            val px = centerX + (p.pos.x - ship.pos.x) * scale
+            val py = centerY + (p.pos.y - ship.pos.y) * scale
+            val pr = (p.radius * scale).toInt().coerceAtLeast(1)
+            g.color = Color(160, 217, 109)
+            g.drawOval((px - pr).toInt(), (py - pr).toInt(), pr * 2, pr * 2)
+        }
+        // Ship (triangle)
+        val shipSize = 10.0
+        val noseX = centerX + cos(ship.angle.toDouble()) * shipSize
+        val noseY = centerY + sin(ship.angle.toDouble()) * shipSize
+        val leftX = centerX + cos(ship.angle + Math.PI.toFloat() * 3 / 4) * shipSize * 0.7
+        val leftY = centerY + sin(ship.angle + Math.PI.toFloat() * 3 / 4) * shipSize * 0.7
+        val rightX = centerX + cos(ship.angle - Math.PI.toFloat() * 3 / 4) * shipSize * 0.7
+        val rightY = centerY + sin(ship.angle - Math.PI.toFloat() * 3 / 4) * shipSize * 0.7
         g.color = Color(0xA0, 0xD9, 0x6D)
         g.fillPolygon(
             intArrayOf(noseX.toInt(), leftX.toInt(), rightX.toInt()),
@@ -132,7 +143,7 @@ private class GamePanel : JPanel(), KeyListener, Runnable {
         // HUD text
         g.color = Color(0xDD, 0xDD, 0xDD)
         g.drawString("Arrows: steer/thrust  |  ESC: quit", 12, 20)
-        g.drawString("Speed: ${"%.1f".format(min(speed, 9999.0))}", 12, 36)
+        g.drawString("Seeded core sim: ${universe.now.toInt()}s", 12, 36)
     }
 
     override fun keyTyped(e: KeyEvent) {}
