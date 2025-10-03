@@ -42,14 +42,24 @@ java -jar app-desktop/build/libs/app-desktop-all.jar --seed=42
 
 ### Desktop + MCP Mode
 ```bash
-# Run MCP server (HTTP on 127.0.0.1:8080)
-./gradlew :control-mcp:run
+# Run MCP server (HTTP on 127.0.0.1:8080); autopilot default is OFF
+./gradlew :control-mcp:run --args="--autopilot=false"
 
 # Basic checks (in another terminal)
 curl -s http://127.0.0.1:8080/health
 curl -s http://127.0.0.1:8080/observe
+
+# Act (GET query or POST JSON)
 curl -s "http://127.0.0.1:8080/act?thrust=1&angle=0.0"
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"thrust":1,"angle":0.0}' http://127.0.0.1:8080/act
+
+# Step (GET query or POST JSON)
 curl -s "http://127.0.0.1:8080/step?dt=0.016"
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"dt":0.5}' http://127.0.0.1:8080/step
+
+# Reset (GET)
 curl -s "http://127.0.0.1:8080/reset?seed=42"
 ```
 
@@ -58,12 +68,17 @@ curl -s "http://127.0.0.1:8080/reset?seed=42"
 MCP HTTP endpoints (localhost only):
 
 - `GET /observe` → current state (time, ship pose/velocity, body count)
-- `POST/GET /act?thrust=0..1&angle=<radians>` → set thrust magnitude and/or ship angle
-- `POST/GET /step?dt=<seconds>` → advance simulation time by dt
+- `POST or GET /act` → set thrust magnitude and/or ship angle
+  - GET query: `?thrust=0..1&angle=<radians>`
+  - POST JSON: `{"thrust": <0..1>, "angle": <radians>}`
+- `POST or GET /step` → advance simulation time by dt (seconds)
+  - GET query: `?dt=<seconds>`
+  - POST JSON: `{"dt": <seconds>}`
 - `POST/GET /reset?seed=<long>` → reset universe with seed
 - `GET /health` → {"status":"ok"}
 
 Notes:
+- Autopilot is controlled only at launch via CLI flag: `--autopilot=true|false` (default false)
 - Deterministic: fixed-timestep stepping with artificial time inside the server
 - Local-only bind (127.0.0.1) for safety
 
