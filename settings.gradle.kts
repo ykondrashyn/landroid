@@ -19,9 +19,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Space"
+rootProject.name = "landroid"
 include(":app")
 include(":app-desktop")
 
 include(":core-sim")
-include(":control-mcp")
+include(":naming-shared")

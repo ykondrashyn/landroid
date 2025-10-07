@@ -28,6 +28,16 @@ const val LANDING_REMOVAL_TIME = 60 * 15f // 15 min of simulation time
 
 const val SCALED_THRUST = true
 
+// Fuel system
+const val DEFAULT_FUEL_CAPACITY = 1000f
+const val FUEL_BURN_RATE_FULL = 5f // units per second at full thrust
+
+// Hull/health system
+const val DEFAULT_HULL_CAPACITY = 100f
+// Max proximity damage per second when skimming the star surface; ramps to 0 by PROX_DAMAGE_END_MULT * radius
+const val PROX_DAMAGE_MAX = 20f
+const val PROX_DAMAGE_END_MULT = 2.0f
+
 open class Planet(
     val orbitCenter: Vec2,
     radius: Float,
@@ -206,12 +216,14 @@ open class Universe(val namer: INamer, randomSeed: Long) : Simulator(randomSeed)
                 val a = (ship.pos - planet.pos).angle()
                 if (d < 0) {
                     val vDiff = (ship.velocity - planet.velocity).mag()
-                    val aDiff = (ship.angle - a).absoluteValue
+                    val aDiff = kotlin.math.abs(run { var r = ((ship.angle - a) % PI2f); if (r > PIf) r -= PI2f; if (r < -PIf) r += PI2f; r })
                     if (aDiff < PIf / 4) {
                         val info = PlanetInfo(description = planet.description, atmosphere = planet.atmosphere, flora = planet.flora, fauna = planet.fauna)
                         val landing = Landing(ship, planet, a, namer.describeActivity(rng, info))
                         ship.landing = landing
                         ship.velocity = planet.velocity
+                        // Refuel on landing
+                        ship.fuel = ship.fuelCapacity
                         add(landing)
                         planet.explored = true
                         latestDiscovery = planet
@@ -234,6 +246,27 @@ open class Universe(val namer: INamer, randomSeed: Long) : Simulator(randomSeed)
     }
 
     override fun postUpdateAll(dt: Float, entities: ArraySet<Entity>) {
+        // Apply star contact/proximity damage to hull
+        run {
+            val s = star
+            val d = (ship.pos - s.pos).mag()
+            // Contact: inside combined radii => instant destruction
+            if (d <= (s.radius + ship.radius)) {
+                ship.hull = 0f
+            } else {
+                // Proximity damage when within a multiple of star radius
+                val threshold = s.radius * PROX_DAMAGE_END_MULT
+                if (d < threshold) {
+                    val closeness = ((threshold - d) / (threshold - s.radius)).coerceIn(0f, 1f)
+                    val shaped = closeness.toDouble().pow(1.2).toFloat()
+                    val damagePerSec = PROX_DAMAGE_MAX * shaped
+                    ship.hull = (ship.hull - damagePerSec * dt).coerceAtLeast(0f)
+                }
+            }
+            // Clamp
+            if (ship.hull > ship.hullCapacity) ship.hull = ship.hullCapacity
+        }
+
         super.postUpdateAll(dt, entities)
         entities.filterIsInstance<Removable>().filter(predicate = Removable::canBeRemoved).forEach { remove(it as Entity) }
         constraints.filterIsInstance<Removable>().filter(predicate = Removable::canBeRemoved).forEach { remove(it as Constraint) }
@@ -294,6 +327,14 @@ class Spacecraft : Body() {
     var thrust = Vec2.Zero
     var launchClock = 0f
 
+    // Fuel state
+    var fuelCapacity: Float = DEFAULT_FUEL_CAPACITY
+    var fuel: Float = fuelCapacity
+
+    // Hull state (health)
+    var hullCapacity: Float = DEFAULT_HULL_CAPACITY
+    var hull: Float = hullCapacity
+
     var transit = false
 
     val track = Track()
@@ -307,10 +348,22 @@ class Spacecraft : Body() {
     }
 
     override fun update(sim: Simulator, dt: Float) {
-        val thrustMag = thrust.mag()
-        if (thrustMag > 0) {
+        val thrustMag = thrust.mag().coerceIn(0f, 1f)
+        var effectiveThrust = thrustMag
+
+        // If no fuel, engine produces no deltaV and no exhaust
+        if (fuel <= 0f) {
+            effectiveThrust = 0f
+            thrust = Vec2.Zero
+        }
+
+        if (effectiveThrust > 0f) {
+            // Burn fuel proportional to throttle and time
+            val burn = FUEL_BURN_RATE_FULL * effectiveThrust * dt
+            fuel = (fuel - burn).coerceAtLeast(0f)
+
             var deltaV = MAIN_ENGINE_ACCEL * dt
-            if (SCALED_THRUST) deltaV *= thrustMag.coerceIn(0f, 1f)
+            if (SCALED_THRUST) deltaV *= effectiveThrust
             landing?.let { landing ->
                 if (launchClock == 0f) launchClock = sim.now + 1f
                 if (sim.now > launchClock) {
@@ -332,8 +385,9 @@ class Spacecraft : Body() {
     override fun postUpdate(sim: Simulator, dt: Float) {
         super.postUpdate(sim, dt)
         track.add(pos.x, pos.y, angle)
-        val mag = thrust.mag()
-        if (sim.rng.nextFloat() < mag) {
+        val mag = thrust.mag().coerceIn(0f, 1f)
+        // Only spawn exhaust if throttling and fuel remains
+        if (fuel > 0f && sim.rng.nextFloat() < mag) {
             sim.add(
                 Spark(
                     ttl = sim.rng.nextFloatInRange(0.5f, 1f),
